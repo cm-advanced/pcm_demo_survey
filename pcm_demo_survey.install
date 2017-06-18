@@ -1,0 +1,14 @@
+<?php
+
+function pcm_demo_survey_install() {
+	if (!variable_get('pcm_demo_admin_webform_id') && !variable_get('pcm_demo_admin_webform_field')) {
+		$message = "You need to set the values at <a href='/admin/settings/pcm_demo_survey'>admin/settings/pcm_demo_survey</a>.";
+		drupal_set_message($message, $type = 'error');
+	}
+}
+
+function pcm_demo_survey_uninstall() {
+  // Delete variables.
+  variable_del('pcm_demo_admin_webform_id');
+  variable_del('pcm_demo_admin_webform_field');
+}

@@ -1,0 +1,119 @@
+<?php
+
+//admin form menu item
+function pcm_demo_survey_menu() {
+	$items = array();
+
+	$items['admin/config/pcm_demo_survey'] = array(
+	  'title' => 'PCM Demo Survey',
+	  'description' => 'The description of the menu item. It is used as title attribute and on the administration overview page.',
+		'page callback' => 'drupal_get_form',
+	    'page arguments' => array('pcm_demo_admin_page'),
+	  'access callback' => TRUE,
+		'type' => MENU_NORMAL_ITEM
+	);
+	return $items;
+}
+
+//admin form
+function pcm_demo_admin_page(){
+	$form = array();
+	$form['pcm_demo_admin_webform_id'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Webform Node'),
+	  '#description' => t('Enter the Node ID of the Webform that will act as your survey POST registration'),
+	  '#size' => 25,
+	  '#maxlength' => 255,
+	  '#default_value' => variable_get('pcm_demo_admin_webform_id', NULL),
+	);
+	$form['pcm_demo_admin_webform_field'] = array(
+	  '#type' => 'textfield',
+	  '#title' => t('Webform Field ID'),
+	  '#description' => t('Enter the Webform field name that will store the CiviCRM Event ID'),
+	  '#size' => 25,
+	  '#maxlength' => 255,
+	  '#default_value' => variable_get('pcm_demo_admin_webform_field', NULL),
+	);
+	return system_settings_form($form);
+}
+
+//Tell CiviCRM's Config / Template path about our module's templates folder
+function pcm_demo_survey_civicrm_config( &$config ) {
+    $civitestRoot = dirname( __FILE__ ) . DIRECTORY_SEPARATOR;
+    // fix php include path
+    $include_path = $civitestRoot . PATH_SEPARATOR . get_include_path( );
+    set_include_path( $include_path );
+ 
+    // fix template path
+    $template =& CRM_Core_Smarty::singleton( );
+    $templateDir = $civitestRoot . 'templates' . DIRECTORY_SEPARATOR;
+    array_unshift( $template->template_dir, $templateDir );
+
+    // add a smarty plugin path
+    $pluginsDir = $civitestRoot . 'plugins' . DIRECTORY_SEPARATOR;
+    array_unshift( $template->plugins_dir, $pluginsDir );
+}
+
+/* Add all the css and js coolness */
+function pcm_demo_survey_init() {
+	
+	//warn the user if our necessary variables are not set yet
+	if (!variable_get('pcm_demo_admin_webform_id', NULL) && !variable_get('pcm_demo_admin_webform_field', NULL)) {
+		$message = "You need to set the values at <a href='/admin/settings/pcm_demo_survey'>admin/settings/pcm_demo_survey</a>.";
+		drupal_set_message($message, $type = 'error');
+	} else {
+		$webformNid = variable_get('pcm_demo_admin_webform_id', NULL);
+		$webformField = variable_get('pcm_demo_admin_webform_field', NULL);
+		if (is_numeric($webformNid) && isset($webformField)) { // @TODO:fix this weak validation
+			if ($_GET['q'] === 'civicrm/event/register') {
+				/* Add $webformNid to the current document via JSON */
+				drupal_add_js(array('pcm_demo_survey' => array('demo_survey_nid' => $webformNid)), 'setting');
+				
+				//css insert here
+				drupal_add_css(drupal_get_path('module', 'pcm_demo_survey') . '/pcm_demo_survey.css');
+				drupal_add_css(drupal_get_path('module', 'pcm_demo_survey') . '/jquery-ui-1.8.22.custom/css/ui-lightness/jquery-ui-1.8.22.custom.css');
+
+				/* Add javascript (jquery UI) files */
+				drupal_add_js(drupal_get_path('module', 'pcm_demo_survey') . '/jquery-ui-1.8.22.custom/js/jquery-1.7.2.min.js');
+				drupal_add_js(drupal_get_path('module', 'pcm_demo_survey') . '/jquery-ui-1.8.22.custom/js/jquery-ui-1.8.22.custom.min.js');
+				drupal_add_js(drupal_get_path('module', 'pcm_demo_survey') . '/pcm_demo_survey.js');
+
+			  }	
+		}
+	}
+}
+
+/**
+ *  Implementation hook_form_alter()
+ * Alter the form field value for Workshop ID hidden field
+ * arg(0) = "node"
+ * arg(1) = node id of current webform
+ * arg(2) = CiviCRM event ID from event thank you  page
+ */  
+function pcm_demo_survey_form_alter(&$form, $form_state, $form_id) { 
+	if ($form_id == 'webform_client_form_'.arg(1) && arg(2)) {
+		if (is_numeric(arg(2))) { //arg(2) is the EventID from CiviCRM passed by Javascript
+			$form['submitted'][variable_get('pcm_demo_admin_webform_field', NULL)]['#value'] = arg(2);
+		}
+	}
+}
+
+
+/* Implements hook_civicrm_buildForm */
+function pcm_demo_survey_civicrm_buildForm( $formName, &$form ) {
+	if ( $formName == "CRM_Event_Form_Registration_ThankYou") {
+		$event_id = $form->getVar( '_eventId' );
+		drupal_add_js(array('pcm_demo_survey' => array('demo_survey_event_id' => $event_id)), 'setting');
+	}
+}
+
+/* Implements hook_webform_submission_presave */
+function pcm_demo_survey_webform_submission_presave($node, &$submission) {
+	//make submissions anonymous for our webform survey only
+	if ($submission->nid == variable_get('pcm_demo_admin_webform_id', NULL)) {
+		//set user to anonymous
+		$submission->uid = 0;
+		//fake out the IP address
+		$submission->remote_addr = "0.0.0.0";
+	}
+}

@@ -1,0 +1,11 @@
+name = Open Signal PCM Demo Survey
+description = Adds a survey (any Webform) to successful CiviCRM Registrations.
+
+core = 7.x
+package = Open Signal PCM Community Media Advanced
+version = 7.x-1.0
+project = "pcm_demo_survey"
+project_status_url = https://github.com/cm-advanced/pcm_demo_survey
+dependencies[] = civicrm
+dependencies[] = webform
+files[] = pcm_demo_survey.css
